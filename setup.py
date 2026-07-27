@@ -64,7 +64,7 @@ p.add_argument("dir", nargs="?", default="agent", help="agent state folder (defa
 p.add_argument("--token")
 p.add_argument("--chat")
 p.add_argument("--thread", help='Telegram thread_id (forum topic).')
-p.add_argument("--api-key", dest="api_key", help='LLM provider API key (Moonshot, OpenAI, etc.)')
+p.add_argument("--api-key", dest="api_key", help='LLM provider API key (DeepSeek, OpenAI, etc.)')
 p.add_argument("--subconscious", action="store_true", help="also install opt/subconscious as a sibling agent dir")
 p.add_argument("--systemd", action="store_true", help="also emit attobot.service + install instructions")
 args = p.parse_args()
@@ -97,7 +97,7 @@ if interactive and not cfg.get("telegram_chat_id") and cfg.get("telegram_token")
     if tid is not None and "telegram_thread_id" not in cfg:
         cfg["telegram_thread_id"] = tid
 if interactive and not cfg.get("api_key"):
-    cfg["api_key"] = input("LLM provider API key (Moonshot by default): ").strip()
+    cfg["api_key"] = input("LLM provider API key (DeepSeek by default): ").strip()
 
 for key in ("telegram_token", "telegram_chat_id", "api_key"):
     if not cfg.get(key):
@@ -116,7 +116,8 @@ if args.subconscious:
     if sub.exists():
         sys.exit(f"{sub} already exists. Delete it to reconfigure.")
     shutil.copytree(pathlib.Path(__file__).parent / "opt" / "subconscious", sub)
-    (sub / "config.json").write_text(json.dumps({"api_key": cfg["api_key"]}, indent=2))
+    (sub / "config.json").write_text(json.dumps(
+        {"api_key": cfg["api_key"], "opt": ["tools/nudge", "tools/stash_messages"]}, indent=2))
     print(f"wrote {sub}/ (run both: python agent.py {args.dir} subconscious)")
 
 if args.systemd:
@@ -132,6 +133,7 @@ WorkingDirectory={workdir}
 ExecStart={sys.executable} agent.py{f' {args.dir} subconscious' if args.subconscious else ''}
 Restart=always
 RestartSec=10
+RestartPreventExitStatus=78
 NoNewPrivileges=yes
 ProtectSystem=strict
 ReadWritePaths={workdir}

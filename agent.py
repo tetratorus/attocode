@@ -564,7 +564,7 @@ def build_system():
         h = CFG["memory_limit"] // 2
         memory = f"{memory[:h]}\n…\n{memory[-h:]}\n[WARNING: MEMORY.md is too large and partially omitted. Move detail into agent/memory/<name>.md files and keep one-line pointers here.]"
     sub = ""
-    if AGENT_DIR != "subconscious" and os.path.isdir("subconscious"):
+    if os.path.basename(os.path.abspath(AGENT_DIR)) != "subconscious" and os.path.isdir("subconscious"):
         sub = ("<subconscious>\nYou have a subconscious: a sibling agent in subconscious/ that reviews your stream and generates helpful system messages.</subconscious>\n\n")
     return (f"<soul>\n{soul}\n</soul>\n\n"
             f"<harness>\n{harness}\n</harness>\n\n"
@@ -653,8 +653,9 @@ def main():
             # a context-window 4xx would otherwise crash-loop forever under Restart=always
             # (the char-estimate overflow check never trips when config context_tokens > the model's real window)
             r = stash_messages({}) if any(k in str(e).lower() for k in ("context", "too long", "exceed")) else ""
-            if not r[:1].isdigit():  # "N lines stashed …" = progress; anything else, die as before
-                raise
+            if not r[:1].isdigit():  # "N lines stashed …" = progress; anything else, die — exit 78 so systemd stops instead of restart-looping the same request
+                print(e, file=sys.stderr, flush=True)
+                sys.exit(78)
             append_msg({"role": "user", "content": f"<system-message>[emergency stash after fatal llm error] {r}</system-message>"})
             last_hash = ""
             continue
