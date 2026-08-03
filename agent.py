@@ -44,6 +44,8 @@ def life(event, agent_dir=AGENT_DIR):
         event = f"{event[:100]}…{event[-100:]}"
     with open(f"{agent_dir}/LIFE.md", "a") as f:
         f.write(f"[{time.strftime('%Y%m%dT%H%M%S')}] {event}\n")
+    if CFG.get("repl"):
+        print(f"\033[2m{event}\033[0m", file=sys.stderr, flush=True)
 
 def _msg(line):
     try: m = json.loads(line)
@@ -157,6 +159,9 @@ def _send_md(chunk):  # telegram renders legacy Markdown itself; unbalanced */_/
     return _tg_send("sendMessage", {"text": chunk, "parse_mode": "Markdown"}, quiet=True) and _tg_send("sendMessage", {"text": chunk})
 
 def send_text(text):
+    if CFG.get("repl"):
+        print(text, flush=True)
+        return "sent"
     if not CFG.get("telegram_token"):
         return "no chat configured"
     errors = [err for i in range(0, len(text), CFG["chat_msg_max"])
@@ -419,6 +424,13 @@ def start_chat():
 
     threading.Thread(target=poll_in, daemon=True, name="chat-poll").start()
 
+def start_repl():
+    def loop():
+        for line in sys.stdin:
+            if line.strip():
+                append_msg({"role": "user", "content": line.rstrip("\n")})
+    threading.Thread(target=loop, daemon=True, name="repl").start()
+
 _trigger_queue = collections.deque()
 _trigger_queue_lock = threading.Lock()
 
@@ -448,7 +460,7 @@ def start_triggers():
     triggers_dir = pathlib.Path(f"{AGENT_DIR}/triggers")
     triggers_dir.mkdir(parents=True, exist_ok=True)
     heartbeat = triggers_dir / "heartbeat.json"
-    if not heartbeat.exists() and os.path.basename(os.path.abspath(AGENT_DIR)) != "subconscious":
+    if not heartbeat.exists() and not CFG.get("repl") and os.path.basename(os.path.abspath(AGENT_DIR)) != "subconscious":
         heartbeat.write_text(json.dumps({"next": time.time() + 225, "repeat_s": 225, "cap": 3600, "message": "Check your latest state to see if there's work, and then pick something worthwhile to do. If there is genuinely nothing to do, reply immediately to this trigger with a simple text message; the harness will interpret this as an idle and backoff the heartbeat interval."}))
 
     def loop():
@@ -611,8 +623,12 @@ def main():
         llm = _load_module(f"provider_{CFG['provider']}", f"{AGENT_DIR}/providers/{CFG['provider']}.py").chat
     pathlib.Path(f"{AGENT_DIR}/MEMORY.md").touch(exist_ok=True)
     pathlib.Path(f"{AGENT_DIR}/messages.jsonl").touch(exist_ok=True)
-    if CFG.get("telegram_token"):  # no token → no chat channel; agent wakes on triggers/mail only
+    if CFG.get("telegram_token"):
         start_chat()
+    else:  # no token → the terminal is the chat (chat-less daemons: stdin is /dev/null, thread exits instantly)
+        CFG["repl"] = sys.stdin.isatty() and os.path.basename(os.path.abspath(AGENT_DIR)) != "subconscious"
+        if CFG["repl"]:
+            start_repl()
     start_triggers()
     start_inbox()
     append_msg({"role": "user", "content": f"<system-message>[start] multimodal_support={CFG['multimodal_support']} provider={CFG['provider'] or 'openai_compat'}</system-message>"})
