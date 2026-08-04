@@ -607,8 +607,6 @@ def main():
         sys.exit(f"{config_path} missing required field: api_key")
     if CFG.get("telegram_token") and not CFG.get("telegram_chat_id"):
         sys.exit(f"{config_path} has telegram_token but no telegram_chat_id")
-    if not CFG["multimodal_support"] and "tools/ocr_image" not in CFG["opt"]:
-        CFG["opt"].append("tools/ocr_image")
     if CFG["provider"] and f"providers/{CFG['provider']}" not in CFG["opt"]:
         CFG["opt"].append(f"providers/{CFG['provider']}")
     for entry in CFG["opt"]:
@@ -631,7 +629,7 @@ def main():
             start_repl()
     start_triggers()
     start_inbox()
-    append_msg({"role": "user", "content": f"<system-message>[start] multimodal_support={CFG['multimodal_support']} provider={CFG['provider'] or 'openai_compat'}</system-message>"})
+    append_msg({"role": "user", "content": f"<system-message>[start] agent_dir={os.path.abspath(AGENT_DIR)} cwd={os.getcwd()} multimodal_support={CFG['multimodal_support']} provider={CFG['provider'] or 'openai_compat'}</system-message>"})
 
     def file_hash():
         return hashlib.sha256(open(f"{AGENT_DIR}/messages.jsonl", "rb").read()).hexdigest()
