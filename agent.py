@@ -429,6 +429,7 @@ def start_repl():
         for line in sys.stdin:
             if line.strip():
                 append_msg({"role": "user", "content": line.rstrip("\n")})
+        os._exit(0)  # ctrl-D / terminal gone — don't linger as a headless agent
     threading.Thread(target=loop, daemon=True, name="repl").start()
 
 _trigger_queue = collections.deque()
@@ -683,7 +684,7 @@ def main():
         tool_results = []
         if not assistant.get("tool_calls"):
             append_msg(assistant)
-            if not SYS_MSG.fullmatch(inbound.get("content") or "") or did_tool_call:
+            if CFG.get("repl") or not SYS_MSG.fullmatch(inbound.get("content") or "") or did_tool_call:  # terminal never mutes — bg reports must print
                 if text := (assistant.get("content") or "").strip(): send_text(text)
         else:
             for tc in assistant["tool_calls"]:
