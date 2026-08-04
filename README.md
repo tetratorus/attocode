@@ -1,3 +1,16 @@
+# attocode
+
+[attobot](https://github.com/tetratorus/attobot) with the terminal as the chat: no `telegram_token` + a tty = repl mode. You type lines, replies print to stdout, the activity feed (tool calls, bg completions) streams dim on stderr, ctrl-C kills it. No auto-heartbeat — it only moves when you talk to it.
+
+```bash
+git clone https://github.com/tetratorus/attocode && attocode/install.sh
+attocode
+```
+
+First run bootstraps a venv and prompts for an API key (DeepSeek by default; edit `~/.attocode/agent/config.json` for `model`/`api_base`/`provider`). Agent state persists in `~/.attocode/agent/` — one continuous agent across projects, resumes where it left off. `attocode <dir>` runs a separate agent with its own state. It works in whatever directory you call it from.
+
+Everything below is the upstream attobot README.
+
 # attobot
 
 A persistent agent in a single `agent.py`.
