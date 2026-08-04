@@ -9,6 +9,8 @@ attocode
 
 First run bootstraps a venv and prompts for an API key (DeepSeek by default; edit `~/.attocode/agent/config.json` for `model`/`api_base`/`provider`). Agent state persists in `~/.attocode/agent/` — one continuous agent across projects, resumes where it left off. `attocode <dir>` runs a separate agent with its own state. It works in whatever directory you call it from.
 
+`attocode --subconscious` installs the reviewer sibling at `~/.attocode/subconscious` (trigger paths rewritten absolute, api_key reused); once installed, every `attocode` runs the pair and ctrl-C/ctrl-D kills both. Its nudges print into your terminal as `[trigger subconscious-…]`.
+
 Everything below is the upstream attobot README.
 
 # attobot
