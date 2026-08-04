@@ -4,10 +4,9 @@ REPO="$(dirname "$(readlink -f "$0")")"
 ROOT="$HOME/.attocode"
 while [ $# -gt 0 ]; do
   case "$1" in
-    --subconscious) SUBINSTALL=1 ;;
     --new) NEW=1 ;;
     --resume|-r) PICK=1 ;;
-    *) AGENT="$1" ;;
+    *) AGENT="$1"; EXPLICIT=1 ;;
   esac
   shift
 done
@@ -54,14 +53,13 @@ if [ ! -f "$AGENT/config.json" ]; then
   fi
   cp "$ROOT/config.json" "$AGENT/config.json"
 fi
-if [ -n "$SUBINSTALL" ] && [ ! -d "$SUB" ]; then
+if [ -z "$EXPLICIT" ] && [ ! -d "$SUB" ]; then
   cp -R "$REPO/opt/subconscious" "$SUB"
   sed -i '' -e "s|subconscious/|$SUB/|g" -e "s|agent/messages.jsonl|$AGENT/messages.jsonl|g" "$SUB"/triggers/*.json
   "$REPO/.venv/bin/python" -c 'import json,sys
 c = {k: v for k, v in json.load(open(sys.argv[1])).items() if not k.startswith("telegram")}
 c["opt"] = sorted(set(c.get("opt", []) + ["tools/nudge", "tools/stash_messages"]))
 open(sys.argv[2], "w").write(json.dumps(c, indent=2))' "$AGENT/config.json" "$SUB/config.json"
-  echo "installed subconscious at $SUB"
 fi
 if [ -d "$SUB" ]; then
   exec "$REPO/.venv/bin/python" "$REPO/agent.py" "$AGENT" "$SUB"

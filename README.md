@@ -12,8 +12,9 @@ Agents are scoped per directory: `attocode` in a project resumes that project's 
 - `attocode` — resume this directory's agent (created on first run)
 - `attocode --new` — archive the current session (`<ns>.<timestamp>`), start fresh
 - `attocode --resume` / `-r` — pick an archived session to swap back in (enter = keep current)
-- `attocode <dir>` — bypass namespacing, run an explicit agent dir
-- `attocode --subconscious` — install the reviewer sibling for this project (`<ns>/subconscious`, trigger paths rewritten absolute, config inherited); from then on this project runs the pair, and ctrl-C/ctrl-D kills both. Its nudges print into your terminal as `[trigger subconscious-…]`.
+- `attocode <dir>` — bypass namespacing, run an explicit agent dir (pair only if a `subconscious` sibling exists)
+
+Every project agent comes as a pair: a reviewer sibling (`<ns>/subconscious`, config inherited, trigger paths absolute) is installed alongside automatically and both run under one command — ctrl-C/ctrl-D kills both. Its nudges print into your terminal as `[trigger subconscious-…]`.
 
 Everything below is the upstream attobot README.
 
