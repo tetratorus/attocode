@@ -1,22 +1,15 @@
 # attocode
 
-[attobot](https://github.com/tetratorus/attobot) with the terminal as the chat: no `telegram_token` + a tty = repl mode. You type lines, replies print to stdout, the activity feed (tool calls, bg completions) streams dim on stderr, ctrl-C kills it. No auto-heartbeat — it only moves when you talk to it.
+[attobot](https://github.com/tetratorus/attobot) in your terminal.
 
 ```bash
 git clone https://github.com/tetratorus/attocode && attocode/install.sh
 attocode
 ```
 
-Agents are scoped per directory: `attocode` in a project resumes that project's agent, stored at `~/.attocode/agents/<basename>-<sha256(cwd)[:8]>/agent/`. First ever run bootstraps a venv and prompts once for an API key (saved to `~/.attocode/config.json`, the template every new project agent is seeded from — put `model`/`api_base`/`provider` overrides there).
+One agent per directory (state in `~/.attocode/`), resumes by default, ships with a subconscious reviewer. `--new` starts fresh, `-r` picks a past session. Config: `~/.attocode/config.json`.
 
-- `attocode` — resume this directory's agent (created on first run)
-- `attocode --new` — archive the current session (`<ns>.<timestamp>`), start fresh
-- `attocode --resume` / `-r` — pick an archived session to swap back in (enter = keep current)
-- `attocode <dir>` — bypass namespacing, run an explicit agent dir (pair only if a `subconscious` sibling exists)
-
-Every project agent comes as a pair: a reviewer sibling (`<ns>/subconscious`, config inherited, trigger paths absolute) is installed alongside automatically and both run under one command — ctrl-C/ctrl-D kills both. Its nudges print into your terminal as `[trigger subconscious-…]`.
-
-Everything below is the upstream attobot README.
+Upstream README below.
 
 # attobot
 
