@@ -7,9 +7,13 @@ git clone https://github.com/tetratorus/attocode && attocode/install.sh
 attocode
 ```
 
-First run bootstraps a venv and prompts for an API key (DeepSeek by default; edit `~/.attocode/agent/config.json` for `model`/`api_base`/`provider`). Agent state persists in `~/.attocode/agent/` — one continuous agent across projects, resumes where it left off. `attocode <dir>` runs a separate agent with its own state. It works in whatever directory you call it from.
+Agents are scoped per directory: `attocode` in a project resumes that project's agent, stored at `~/.attocode/agents/<basename>-<sha256(cwd)[:8]>/agent/`. First ever run bootstraps a venv and prompts once for an API key (saved to `~/.attocode/config.json`, the template every new project agent is seeded from — put `model`/`api_base`/`provider` overrides there).
 
-`attocode --subconscious` installs the reviewer sibling at `~/.attocode/subconscious` (trigger paths rewritten absolute, api_key reused); once installed, every `attocode` runs the pair and ctrl-C/ctrl-D kills both. Its nudges print into your terminal as `[trigger subconscious-…]`.
+- `attocode` — resume this directory's agent (created on first run)
+- `attocode --new` — archive the current session (`<ns>.<timestamp>`), start fresh
+- `attocode --resume` / `-r` — pick an archived session to swap back in (enter = keep current)
+- `attocode <dir>` — bypass namespacing, run an explicit agent dir
+- `attocode --subconscious` — install the reviewer sibling for this project (`<ns>/subconscious`, trigger paths rewritten absolute, config inherited); from then on this project runs the pair, and ctrl-C/ctrl-D kills both. Its nudges print into your terminal as `[trigger subconscious-…]`.
 
 Everything below is the upstream attobot README.
 

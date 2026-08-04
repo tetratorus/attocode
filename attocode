@@ -1,8 +1,42 @@
 #!/bin/sh
 set -e
 REPO="$(dirname "$(readlink -f "$0")")"
-case "$1" in --subconscious) SUBINSTALL=1; shift ;; esac
-AGENT="${1:-$HOME/.attocode/agent}"
+ROOT="$HOME/.attocode"
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --subconscious) SUBINSTALL=1 ;;
+    --new) NEW=1 ;;
+    --resume|-r) PICK=1 ;;
+    *) AGENT="$1" ;;
+  esac
+  shift
+done
+if [ -z "$AGENT" ]; then
+  NS="$ROOT/agents/$(basename "$PWD" | tr -c 'A-Za-z0-9._-' '-')$(printf '%s' "$PWD" | shasum -a 256 | cut -c1-8)"
+  AGENT="$NS/agent"
+  if [ -n "$NEW" ] && [ -d "$NS" ]; then
+    mv "$NS" "$NS.$(date +%Y%m%dT%H%M%S)"
+    echo "archived previous session"
+  fi
+  if [ -n "$PICK" ]; then
+    i=0
+    for a in "$NS".*; do
+      [ -d "$a" ] || continue
+      i=$((i+1))
+      echo "$i) ${a##*.}"
+    done
+    if [ "$i" -gt 0 ]; then
+      printf 'resume which session? (enter = current): '
+      read -r n
+      if [ -n "$n" ]; then
+        p="$(ls -d "$NS".* | sed -n "${n}p")"
+        [ -d "$p" ] || { echo "no such session"; exit 1; }
+        [ -d "$NS" ] && mv "$NS" "$NS.$(date +%Y%m%dT%H%M%S)"
+        mv "$p" "$NS"
+      fi
+    fi
+  fi
+fi
 SUB="$(dirname "$AGENT")/subconscious"
 if [ ! -f "$REPO/.venv/.ok" ]; then
   python3 -m venv "$REPO/.venv"
@@ -12,15 +46,21 @@ fi
 mkdir -p "$AGENT"
 [ -f "$AGENT/SOUL.md" ] || cp "$REPO/SOUL.md" "$AGENT/SOUL.md"
 if [ ! -f "$AGENT/config.json" ]; then
-  printf 'LLM API key (DeepSeek by default): '
-  read -r KEY
-  printf '{"api_key": "%s"}\n' "$KEY" > "$AGENT/config.json"
+  if [ ! -f "$ROOT/config.json" ]; then
+    mkdir -p "$ROOT"
+    printf 'LLM API key (DeepSeek by default): '
+    read -r KEY
+    printf '{"api_key": "%s"}\n' "$KEY" > "$ROOT/config.json"
+  fi
+  cp "$ROOT/config.json" "$AGENT/config.json"
 fi
 if [ -n "$SUBINSTALL" ] && [ ! -d "$SUB" ]; then
   cp -R "$REPO/opt/subconscious" "$SUB"
   sed -i '' -e "s|subconscious/|$SUB/|g" -e "s|agent/messages.jsonl|$AGENT/messages.jsonl|g" "$SUB"/triggers/*.json
-  KEY="$("$REPO/.venv/bin/python" -c 'import json,sys; print(json.load(open(sys.argv[1]))["api_key"])' "$AGENT/config.json")"
-  printf '{"api_key": "%s", "opt": ["tools/nudge", "tools/stash_messages"]}\n' "$KEY" > "$SUB/config.json"
+  "$REPO/.venv/bin/python" -c 'import json,sys
+c = {k: v for k, v in json.load(open(sys.argv[1])).items() if not k.startswith("telegram")}
+c["opt"] = sorted(set(c.get("opt", []) + ["tools/nudge", "tools/stash_messages"]))
+open(sys.argv[2], "w").write(json.dumps(c, indent=2))' "$AGENT/config.json" "$SUB/config.json"
   echo "installed subconscious at $SUB"
 fi
 if [ -d "$SUB" ]; then
