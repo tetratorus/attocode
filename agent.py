@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Minimal agent."""
-import base64, collections, fcntl, hashlib, importlib.util, json, mimetypes, os, pathlib, pwd, re, requests, shutil, subprocess, sys, threading, time
+import base64, collections, fcntl, hashlib, importlib.util, json, mimetypes, os, pathlib, pwd, re, requests, select, shutil, subprocess, sys, threading, time
 sys.modules.setdefault("agent", sys.modules[__name__])
 
 AGENT_DIR = sys.argv[1] if len(sys.argv) > 1 else "agent"
@@ -216,7 +216,7 @@ def edit_file(args):
     return f"edited {path}" + (f" ({count} replacements)" if args.get("replace_all") else "")
 
 def bash(args):
-    return subprocess.Popen(args["cmd"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    return subprocess.Popen(args["cmd"], shell=True, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)  # never inherit the repl tty — stdin-reading commands steal keystrokes
 
 def search(args):
     from ddgs import DDGS
@@ -425,10 +425,18 @@ def start_chat():
     threading.Thread(target=poll_in, daemon=True, name="chat-poll").start()
 
 def start_repl():
-    def loop():
-        for line in sys.stdin:
-            if line.strip():
-                append_msg({"role": "user", "content": line.rstrip("\n")})
+    def loop():  # raw fd reads: a pasted block arrives as one message, not one per line
+        while True:
+            try: chunk = os.read(0, 65536)
+            except OSError: chunk = b""
+            if not chunk: break
+            buf = chunk
+            while select.select([0], [], [], 0.15)[0]:
+                more = os.read(0, 65536)
+                if not more: break
+                buf += more
+            if text := buf.decode("utf-8", errors="replace").strip():
+                append_msg({"role": "user", "content": text})
         for p in list(_children):  # sibling processes don't get the tty's EOF — kill or they orphan
             try: p.kill()
             except Exception: pass
@@ -483,7 +491,7 @@ def start_triggers():
                     msg = job.get("message", "")
                     if c := job.get("cmd"):  # computed condition: fire with stdout; no output = no fire
                         try:
-                            msg = clip(subprocess.run(c, shell=True, capture_output=True, text=True,
+                            msg = clip(subprocess.run(c, shell=True, stdin=subprocess.DEVNULL, capture_output=True, text=True,
                                                       timeout=60).stdout.strip())
                         except Exception as e:
                             msg = f"(cmd error: {e})"
@@ -606,6 +614,11 @@ def main():
         sys.exit(f"missing {config_path}. Run: python setup.py")
     if not pathlib.Path(f"{AGENT_DIR}/SOUL.md").exists():
         sys.exit(f"missing {AGENT_DIR}/SOUL.md — copy a soul template in")
+    globals()["_LOCK"] = open(f"{AGENT_DIR}/.lock", "w")  # two loops on one dir ping-pong turns forever
+    try:
+        fcntl.flock(globals()["_LOCK"], fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        sys.exit(f"another agent.py is already running on {AGENT_DIR}")
     CFG.update(json.loads(config_path.read_text()))
     if not CFG.get("api_key"):
         sys.exit(f"{config_path} missing required field: api_key")

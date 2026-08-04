@@ -4,9 +4,10 @@ REPO="$(dirname "$(readlink -f "$0")")"
 case "$1" in --subconscious) SUBINSTALL=1; shift ;; esac
 AGENT="${1:-$HOME/.attocode/agent}"
 SUB="$(dirname "$AGENT")/subconscious"
-if [ ! -x "$REPO/.venv/bin/python" ]; then
+if [ ! -f "$REPO/.venv/.ok" ]; then
   python3 -m venv "$REPO/.venv"
   "$REPO/.venv/bin/pip" install -q -r "$REPO/requirements.txt"
+  touch "$REPO/.venv/.ok"
 fi
 mkdir -p "$AGENT"
 [ -f "$AGENT/SOUL.md" ] || cp "$REPO/SOUL.md" "$AGENT/SOUL.md"
