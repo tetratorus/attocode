@@ -1,7 +1,9 @@
 #!/bin/sh
 set -e
 REPO="$(dirname "$(readlink -f "$0")")"
+case "$1" in --subconscious) SUBINSTALL=1; shift ;; esac
 AGENT="${1:-$HOME/.attocode/agent}"
+SUB="$(dirname "$AGENT")/subconscious"
 if [ ! -x "$REPO/.venv/bin/python" ]; then
   python3 -m venv "$REPO/.venv"
   "$REPO/.venv/bin/pip" install -q -r "$REPO/requirements.txt"
@@ -12,5 +14,15 @@ if [ ! -f "$AGENT/config.json" ]; then
   printf 'LLM API key (DeepSeek by default): '
   read -r KEY
   printf '{"api_key": "%s"}\n' "$KEY" > "$AGENT/config.json"
+fi
+if [ -n "$SUBINSTALL" ] && [ ! -d "$SUB" ]; then
+  cp -R "$REPO/opt/subconscious" "$SUB"
+  sed -i '' -e "s|subconscious/|$SUB/|g" -e "s|agent/messages.jsonl|$AGENT/messages.jsonl|g" "$SUB"/triggers/*.json
+  KEY="$("$REPO/.venv/bin/python" -c 'import json,sys; print(json.load(open(sys.argv[1]))["api_key"])' "$AGENT/config.json")"
+  printf '{"api_key": "%s", "opt": ["tools/nudge", "tools/stash_messages"]}\n' "$KEY" > "$SUB/config.json"
+  echo "installed subconscious at $SUB"
+fi
+if [ -d "$SUB" ]; then
+  exec "$REPO/.venv/bin/python" "$REPO/agent.py" "$AGENT" "$SUB"
 fi
 exec "$REPO/.venv/bin/python" "$REPO/agent.py" "$AGENT"

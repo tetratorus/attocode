@@ -429,6 +429,9 @@ def start_repl():
         for line in sys.stdin:
             if line.strip():
                 append_msg({"role": "user", "content": line.rstrip("\n")})
+        for p in list(_children):  # sibling processes don't get the tty's EOF — kill or they orphan
+            try: p.kill()
+            except Exception: pass
         os._exit(0)  # ctrl-D / terminal gone — don't linger as a headless agent
     threading.Thread(target=loop, daemon=True, name="repl").start()
 
@@ -577,7 +580,7 @@ def build_system():
         h = CFG["memory_limit"] // 2
         memory = f"{memory[:h]}\n…\n{memory[-h:]}\n[WARNING: MEMORY.md is too large and partially omitted. Move detail into agent/memory/<name>.md files and keep one-line pointers here.]"
     sub = ""
-    if os.path.basename(os.path.abspath(AGENT_DIR)) != "subconscious" and os.path.isdir("subconscious"):
+    if os.path.basename(os.path.abspath(AGENT_DIR)) != "subconscious" and os.path.isdir(os.path.join(os.path.dirname(os.path.abspath(AGENT_DIR)), "subconscious")):
         sub = ("<subconscious>\nYou have a subconscious: a sibling agent in subconscious/ that reviews your stream and generates helpful system messages.</subconscious>\n\n")
     return (f"<soul>\n{soul}\n</soul>\n\n"
             f"<harness>\n{harness}\n</harness>\n\n"
@@ -719,10 +722,14 @@ def main():
             owe_turn = True
         _flush_trigger_over_idle()
 
+_children = []
+
 def _respawn(extra):  # a crashed sibling (e.g. subconscious) must not stay silently dead
     while True:
         p = subprocess.Popen([sys.executable, __file__, extra])
+        _children.append(p)
         p.wait()
+        _children.remove(p)
         life(f"[child {extra} exited {p.returncode}; respawn in 10s]")
         time.sleep(10)
 
