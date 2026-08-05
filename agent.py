@@ -505,7 +505,7 @@ def start_triggers():
                             job["next"] = ts + job["repeat_s"]
                         f.write_text(json.dumps(job))
                     content = f"[trigger {f.stem}] {msg}"
-                    if f.stem.startswith("subconscious-"):  # subconscious has no channel of its own; surface its triggers to Telegram via the primary
+                    if f.stem.startswith("subconscious-") and not CFG.get("repl"):  # mirror to the operator's Telegram; in repl the nudge is already in the dim feed — don't echo it into the bright conversation
                         send_text(content)
                     with _trigger_queue_lock:
                         _trigger_queue.append({"role": "user", "content": f"<system-message>{content}</system-message>"})
@@ -700,8 +700,13 @@ def main():
         tool_results = []
         if not assistant.get("tool_calls"):
             append_msg(assistant)
-            if CFG.get("repl") or not SYS_MSG.fullmatch(inbound.get("content") or "") or did_tool_call:  # terminal never mutes — bg reports must print
-                if text := (assistant.get("content") or "").strip(): send_text(text)
+            inbound_c = inbound.get("content") or ""
+            if CFG.get("repl"):  # bright stdout is your conversation: your replies + bg reports. subconscious tangents stay in the dim feed.
+                surface = "[trigger subconscious-" not in inbound_c
+            else:
+                surface = not SYS_MSG.fullmatch(inbound_c) or did_tool_call
+            if surface and (text := (assistant.get("content") or "").strip()):
+                send_text(text)
         else:
             for tc in assistant["tool_calls"]:
                 name = tc["function"]["name"]
